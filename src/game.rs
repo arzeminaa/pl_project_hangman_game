@@ -1,15 +1,21 @@
 use std::collections::HashSet;
 use std::iter::FromIterator;
 use rand::Rng;
+use std::fs::File;
+use serde::{Serialize, Deserialize};
+use std::io::BufWriter;
+use std::io::BufReader;
 
 use crate::errors::HangmanErrors;
 
+#[derive(Serialize, Deserialize)]
 pub enum State {
     Pending,
     Victory,
     Unsuccessful,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct HangmanGame {
     pub attempted_letters: HashSet<char>,
     pub attempted_words: HashSet<String>,
@@ -102,9 +108,23 @@ impl HangmanGame {
             _                     => true,
         }
     }
+
+    pub fn save(&self, filename: &str) -> Result<(), HangmanErrors> {
+        let file = File::create(filename)?;
+        let writer = BufWriter::new(file);
+        serde_json::to_writer(writer, &self)?;
+        Ok(())
+    }
+
+    pub fn load(filename: &str) -> Result<Self, HangmanErrors> {
+        let file = File::open(filename)?;
+        let reader = BufReader::new(file);
+        let game = serde_json::from_reader(reader)?;
+        Ok(game)
+    }
 }
 
-fn get_random_word() -> &'static str {
+pub fn get_random_word() -> &'static str {
     const WORDS: &[&str] = &["rust", "cargo", "compiler", "borrow", "ownership", "trait", "macro"];
     let mut rng = rand::thread_rng();
     let index = rng.gen_range(0..WORDS.len());

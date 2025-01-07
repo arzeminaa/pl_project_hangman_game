@@ -25,6 +25,8 @@ pub enum Command {
     TryWord(String),
     Info,
     Help,
+    Save(String),
+    Load(String),
     Quit,
 }
 
@@ -42,6 +44,22 @@ impl FromStr for Command {
             Some('q') => Ok(Command::Quit),
             Some('i') => Ok(Command::Info),
             Some('h') => Ok(Command::Help),
+            Some('s') => {
+                let parts: Vec<&str> = s.splitn(2, ' ').collect();
+                if parts.len() == 2 {
+                    Ok(Command::Save(parts[1].to_string()))
+                } else {
+                    err!()
+                }
+            },
+            Some('l') => {
+                let parts: Vec<&str> = s.splitn(2, ' ').collect();
+                if parts.len() == 2 {
+                    Ok(Command::Load(parts[1].to_string()))
+                } else {
+                    err!()
+                }
+            },
             Some(c) if c.is_alphabetic() && s.len() == 1 => Ok(Command::TryLetter(c)),
             _ if s.split_whitespace().count() == 1 => Ok(Command::TryWord(s)),
             _ => err!(),

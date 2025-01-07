@@ -1,22 +1,25 @@
 use std::io::{self, Write};
-
 use clap::Parser;
-
 use hangman::game::HangmanGame;
 use hangman::input::{self, Command, Options};
 use hangman::tui;
+use hangman::game::get_random_word;
 
 fn main() {
     let options = Options::parse();
-    let mut game = HangmanGame::new(options.attempts).unwrap();
-    let stdin = io::stdin();
 
+    let solution = get_random_word();
+    let mut game = HangmanGame::new(options.attempts).unwrap();
+    game.solution = solution.to_string();
+
+    let stdin = io::stdin();
     tui::clear_screen(options.debug);
     println!("Let's play hangman!");
 
     loop {
         tui::clear_screen(options.debug);
         tui::draw_hangman(game.attempts_remaining);
+
         println!("{}", game);
 
         if game.is_over() {
@@ -47,6 +50,19 @@ fn main() {
             Command::TryWord(word) => tui::print_guess_response(game.guess_word(&word)),
             Command::Help          => tui::print_help(),
             Command::Info          => tui::print_info(&game),
+            Command::Save(filename) => {
+                if let Err(e) = game.save(&filename) {
+                    println!("Error saving game: {}", e);
+                } else {
+                    println!("Game saved successfully.");
+                }
+            },
+            Command::Load(filename) => {
+                match HangmanGame::load(&filename) {
+                    Ok(loaded_game) => game = loaded_game,
+                    Err(e) => println!("Error loading game: {}", e),
+                }
+            },
             Command::Quit          => break,
         };
 
