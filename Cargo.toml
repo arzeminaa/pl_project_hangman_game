@@ -1,0 +1,10 @@
+[package]
+name = "hangman"
+version = "0.1.0"
+authors = ["Arzemina Brackovic <arzemina.brackovic@gmail.com> Nejla Sehagic <nejla.sehagic@stu.ibu.edu.ba>"]
+edition= "2021"
+
+[dependencies]
+dirs = "*"
+rand = "*"
+clap = { version = "*", features = ["derive"] }
