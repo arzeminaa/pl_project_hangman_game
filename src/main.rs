@@ -7,12 +7,31 @@ use hangman::game::get_random_word;
 
 fn main() {
     let options = Options::parse();
-
-    let solution = get_random_word();
-    let mut game = HangmanGame::new(options.attempts).unwrap();
-    game.solution = solution.to_string();
-
     let stdin = io::stdin();
+
+    println!("Do you want to load a saved game? (y/n)");
+    let mut input = String::new();
+    stdin.read_line(&mut input).expect("Failed to read input");
+    let input = input.trim();
+
+    let mut game = if input == "y" {
+        // Load the saved game
+        println!("Enter the filename of the saved game:");
+        let mut input = String::new();
+        stdin.read_line(&mut input).expect("Failed to read input");
+        let filename = input.trim();
+        match HangmanGame::load(filename) {
+            Ok(loaded_game) => loaded_game,
+            Err(e) => {
+                println!("Error loading game: {}. Starting a new game.", e);
+                start_new_game(options.attempts)
+            }
+        }
+    } else {
+        // Start a new game
+        start_new_game(options.attempts)
+    };
+
     tui::clear_screen(options.debug);
     println!("Let's play hangman!");
 
@@ -30,10 +49,7 @@ fn main() {
         io::stdout().flush().unwrap();
 
         let mut input = String::new();
-        if let Err(_) = stdin.read_line(&mut input) {
-            println!("\nInvalid input!");
-            continue;
-        };
+        stdin.read_line(&mut input).expect("Failed to read input");
 
         let command = match input.parse::<Command>() {
             Ok(c) => c,
@@ -70,4 +86,11 @@ fn main() {
     }
 
     println!("Good game!");
+}
+
+fn start_new_game(attempts: u32) -> HangmanGame {
+    let solution = get_random_word();
+    let mut game = HangmanGame::new(attempts).unwrap();
+    game.solution = solution.to_string();
+    game
 }
