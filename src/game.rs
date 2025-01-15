@@ -1,0 +1,148 @@
+use std::collections::HashSet;
+use std::iter::FromIterator;
+use rand::Rng;
+use std::fs::File;
+use serde::{Serialize, Deserialize};
+use std::io::BufWriter;
+use std::io::BufReader;
+
+use crate::errors::HangmanErrors;
+
+#[derive(Serialize, Deserialize)]
+pub enum State {
+    Pending,
+    Victory,
+    Unsuccessful,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum GameMode {
+    SinglePlayer,
+    MultiPlayer,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct HangmanGame {
+    pub attempted_letters: HashSet<char>,
+    pub attempted_words: HashSet<String>,
+    pub attempts_remaining: u32,
+    pub state: State,
+    pub solution: String,
+    pub solution_letters: HashSet<char>,
+    pub game_mode: GameMode,
+    pub score: u32,
+}
+
+impl HangmanGame {
+    pub fn new(attempts: u32, game_mode: GameMode) -> Result<Self, HangmanErrors> {
+        let solution = get_random_word();
+        if solution.is_empty() {
+            return Err(HangmanErrors::InvalidSolution(String::new()));
+        }
+        if !solution.chars().all(char::is_alphabetic) {
+            return Err(HangmanErrors::InvalidSolution(String::from(solution)));
+        }
+
+        let solution = String::from(solution);
+        let attempted_letters = HashSet::new();
+        let attempted_words = HashSet::new();
+        let solution_letters = HashSet::from_iter(solution.chars());
+
+        Ok(HangmanGame {
+            solution,
+            solution_letters,
+            attempted_letters,
+            attempted_words,
+            attempts_remaining: attempts,
+            state: State::Pending,
+            game_mode,
+            score: 0,
+        })
+    }
+
+    pub fn guess_letter(&mut self, guess: char) -> Result<bool, HangmanErrors> {
+        if self.is_over() {
+            return Err(HangmanErrors::HangmanGameOver);
+        }
+
+        if self.attempted_letters.contains(&guess) {
+            return Err(HangmanErrors::BadGuess(String::from("You already tried this letter!")));
+        }
+
+        self.attempted_letters.insert(guess);
+
+        if self.solution_letters.contains(&guess) {
+            self.score += 10; // Increase score for correct letter
+            if self.attempted_letters.is_superset(&self.solution_letters) {
+                self.state = State::Victory;
+            }
+            Ok(true)
+        } else {
+            self.attempts_remaining -= 1;
+            if self.attempts_remaining == 0 {
+                self.state = State::Unsuccessful;
+            }
+            Ok(false)
+        }
+    }
+
+    pub fn guess_word(&mut self, guess: &str) -> Result<bool, HangmanErrors> {
+        if self.is_over() {
+            return Err(HangmanErrors::HangmanGameOver);
+        }
+
+        if self.attempted_words.contains(guess) {
+            return Err(HangmanErrors::BadGuess(String::from("You already tried this word!")));
+        }
+
+        self.attempted_words.insert(String::from(guess));
+
+        if guess == self.solution {
+            self.score += 50; // Increase score for correct word
+            self.state = State::Victory;
+            Ok(true)
+        } else {
+            self.attempts_remaining -= 1;
+            if self.attempts_remaining == 0 {
+                self.state = State::Unsuccessful;
+            }
+            Ok(false)
+        }
+    }
+
+    pub fn is_over(&self) -> bool {
+        match self.state {
+            State::Pending => false,
+            _                     => true,
+        }
+    }
+
+    pub fn save(&self, filename: &str) -> Result<(), HangmanErrors> {
+        let file = File::create(filename)?;
+        let writer = BufWriter::new(file);
+        serde_json::to_writer(writer, &self)?;
+        Ok(())
+    }
+
+    pub fn load(filename: &str) -> Result<Self, HangmanErrors> {
+        let file = File::open(filename)?;
+        let reader = BufReader::new(file);
+        let game = serde_json::from_reader(reader)?;
+        Ok(game)
+    }
+
+    pub fn has_letter_been_guessed(&self, guess: char) -> bool {
+        self.attempted_letters.contains(&guess)
+    }
+
+    pub fn has_word_been_guessed(&self, guess: &str) -> bool {
+        self.attempted_words.contains(guess)
+    }
+}
+
+pub fn get_random_word() -> &'static str {
+    const WORDS: &[&str] = &["rust", "cargo", "compiler", "borrow", "ownership", "trait", "macro"];
+    let mut rng = rand::thread_rng();
+    let index = rng.gen_range(0..WORDS.len());
+    WORDS[index]
+}
